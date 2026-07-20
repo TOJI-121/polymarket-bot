@@ -11,6 +11,7 @@ export class DashboardServer {
   private server: http.Server;
   private logger: ReturnType<typeof getLogger>;
   private port: number;
+  private configSnapshot: Record<string, string | number | boolean> = {};
 
   private state: BotState = {
     totalCapital: 10,
@@ -46,10 +47,25 @@ export class DashboardServer {
     this.logger = getLogger(config);
     this.app = express();
 
+    this.configSnapshot = {
+      simulation: (config as any).simulation,
+      paperTrade: (config as any).paperTrade,
+      safeCapital: (config as any).safeCapital,
+      mixedCapital: (config as any).mixedCapital,
+      allMarkets: (config as any).allMarkets,
+      engineMode: (config as any).engineMode,
+      telegramBotToken: (config as any).telegramBotToken ? 'SET' : 'MISSING',
+      telegramChatId: (config as any).telegramChatId ? 'SET' : 'MISSING',
+    };
+
     this.app.use(express.static(path.join(__dirname, '..', 'dashboard')));
 
     this.app.get('/healthz', (_req, res) => {
       res.status(200).send('OK');
+    });
+
+    this.app.get('/api/config', (_req, res) => {
+      res.json(this.configSnapshot);
     });
 
     this.app.get('/api/state', (_req, res) => {

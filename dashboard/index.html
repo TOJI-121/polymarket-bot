@@ -55,7 +55,6 @@
     <div class="status-dot green" id="statusDot"></div>
     <span id="statusText">Running</span>
     <span style="color:#8b949e;margin-left:16px;" id="marketCountText">Markets: 0</span>
-    <span style="color:#8b949e;margin-left:16px;" id="modeText"></span>
     <span style="color:#8b949e;margin-left:auto;" id="uptimeText">Uptime: 0h 0m</span>
   </div>
 
@@ -186,12 +185,6 @@ function updateDashboard() {
       document.getElementById('statusDot').className = 'status-dot ' + (state.isRunning ? 'green' : 'red');
       document.getElementById('statusText').textContent = state.isRunning ? 'Running' : 'Stopped';
       document.getElementById('marketCountText').textContent = 'Markets: ' + (state.marketCount || 0);
-
-      const mode = state.mode || '—';
-      const modeEl = document.getElementById('modeText');
-      if (mode === 'paper_trade') { modeEl.textContent = '📄 PAPER'; modeEl.style.color = '#d29922'; }
-      else if (mode === 'simulation') { modeEl.textContent = '🧪 SIM'; modeEl.style.color = '#58a6ff'; }
-      else { modeEl.textContent = '🔴 LIVE'; modeEl.style.color = '#f85149'; }
 
       const uptime = Math.floor((Date.now() - (state.startTime || Date.now())) / 1000);
       const h = Math.floor(uptime / 3600);
