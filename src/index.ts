@@ -104,7 +104,7 @@ class DualEngineBot {
       winRate: 0,
       startTime: this.startTimestamp,
       isRunning: true,
-      mode: this.config.simulation ? 'simulation' : 'production',
+      mode: this.config.paperTrade ? 'paper_trade' : this.config.simulation ? 'simulation' : 'production',
       marketCount: 0,
       withdrawalMode: 'compound',
       dailyWithdrawCap: this.config.withdrawalMaxDaily,

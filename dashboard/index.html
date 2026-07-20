@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Polymarket 3-Wallet Bot</title>
+<title>Polymarket Auto-Bot</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
@@ -14,10 +14,9 @@
   .status-dot { width: 10px; height: 10px; border-radius: 50%; }
   .status-dot.green { background: #3fb950; box-shadow: 0 0 8px rgba(63,185,80,0.4); }
   .status-dot.red { background: #f85149; }
+  .status-dot.yellow { background: #d29922; box-shadow: 0 0 8px rgba(210,153,34,0.4); }
 
-  .wallet-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-  @media (max-width: 900px) { .wallet-grid { grid-template-columns: 1fr; } }
-
+  .wallet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px; }
   .wallet-panel { border: 2px solid; border-radius: 10px; padding: 16px; background: #161b22; }
   .wallet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #21262d; }
   .wallet-title { font-size: 18px; font-weight: 700; }
@@ -45,6 +44,7 @@
   .badge-red { background: rgba(248,81,73,0.15); color: #f85149; }
   .badge-yellow { background: rgba(210,153,34,0.15); color: #d29922; }
   .badge-blue { background: rgba(88,166,255,0.15); color: #58a6ff; }
+  .badge-gray { background: rgba(139,148,158,0.15); color: #8b949e; }
 
   .wallet-tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; color: #fff; }
 </style>
@@ -55,55 +55,11 @@
     <div class="status-dot green" id="statusDot"></div>
     <span id="statusText">Running</span>
     <span style="color:#8b949e;margin-left:16px;" id="marketCountText">Markets: 0</span>
+    <span style="color:#8b949e;margin-left:16px;" id="modeText"></span>
     <span style="color:#8b949e;margin-left:auto;" id="uptimeText">Uptime: 0h 0m</span>
   </div>
 
-  <div class="wallet-grid" id="walletGrid">
-    <div class="wallet-panel" id="panelA" style="border-color:#f85149;">
-      <div class="wallet-header">
-        <span class="wallet-title" style="color:#f85149;">Wallet A</span>
-        <span class="wallet-strategy" style="background:rgba(248,81,73,0.15);color:#f85149;">Directional</span>
-      </div>
-      <div class="wallet-stats">
-        <div class="stat"><div class="stat-label">Capital</div><div class="stat-value" id="wA_capital">$0.00</div></div>
-        <div class="stat"><div class="stat-label">Available</div><div class="stat-value small" id="wA_balance">$0.00</div></div>
-        <div class="stat"><div class="stat-label">P&L</div><div class="stat-value small" id="wA_pnl">$0.00</div></div>
-        <div class="stat"><div class="stat-label">Trades</div><div class="stat-value small" id="wA_trades">0</div></div>
-        <div class="stat"><div class="stat-label">Win Rate</div><div class="stat-value small" id="wA_wins">0%</div></div>
-        <div class="stat"><div class="stat-label">Open</div><div class="stat-value small" id="wA_open">0</div></div>
-      </div>
-    </div>
-
-    <div class="wallet-panel" id="panelB" style="border-color:#d29922;">
-      <div class="wallet-header">
-        <span class="wallet-title" style="color:#d29922;">Wallet B</span>
-        <span class="wallet-strategy" style="background:rgba(210,153,34,0.15);color:#d29922;">Scalp</span>
-      </div>
-      <div class="wallet-stats">
-        <div class="stat"><div class="stat-label">Capital</div><div class="stat-value" id="wB_capital">$0.00</div></div>
-        <div class="stat"><div class="stat-label">Available</div><div class="stat-value small" id="wB_balance">$0.00</div></div>
-        <div class="stat"><div class="stat-label">P&L</div><div class="stat-value small" id="wB_pnl">$0.00</div></div>
-        <div class="stat"><div class="stat-label">Trades</div><div class="stat-value small" id="wB_trades">0</div></div>
-        <div class="stat"><div class="stat-label">Win Rate</div><div class="stat-value small" id="wB_wins">0%</div></div>
-        <div class="stat"><div class="stat-label">Open</div><div class="stat-value small" id="wB_open">0</div></div>
-      </div>
-    </div>
-
-    <div class="wallet-panel" id="panelC" style="border-color:#3fb950;">
-      <div class="wallet-header">
-        <span class="wallet-title" style="color:#3fb950;">Wallet C</span>
-        <span class="wallet-strategy" style="background:rgba(63,185,80,0.15);color:#3fb950;">Safe Arb</span>
-      </div>
-      <div class="wallet-stats">
-        <div class="stat"><div class="stat-label">Capital</div><div class="stat-value" id="wC_capital">$0.00</div></div>
-        <div class="stat"><div class="stat-label">Available</div><div class="stat-value small" id="wC_balance">$0.00</div></div>
-        <div class="stat"><div class="stat-label">P&L</div><div class="stat-value small" id="wC_pnl">$0.00</div></div>
-        <div class="stat"><div class="stat-label">Trades</div><div class="stat-value small" id="wC_trades">0</div></div>
-        <div class="stat"><div class="stat-label">Win Rate</div><div class="stat-value small" id="wC_wins">0%</div></div>
-        <div class="stat"><div class="stat-label">Open</div><div class="stat-value small" id="wC_open">0</div></div>
-      </div>
-    </div>
-  </div>
+  <div class="wallet-grid" id="walletGrid"></div>
 
   <div class="global-grid">
     <div class="card"><div class="label">Total Capital (All)</div><div class="value blue" id="totalCapital">$0.00</div></div>
@@ -132,97 +88,139 @@
 </div>
 
 <script>
+const ENGINE_COLORS = { safe: '#3fb950', mixed: '#d29922', fresh: '#58a6ff', sports: '#f78166', default: '#8b949e' };
+const ENGINE_NAMES = { safe: 'Safe Engine', mixed: 'Mixed Engine', fresh: 'Fresh Market', sports: 'Sports Scalper' };
+const STRAT_LABELS = { safe_arb: 'Arb', mixed: 'Mix', scalp: 'Scalp', directional: 'Dir', fresh_market: 'Fresh', sports_scalp: 'Sports', fresh_arb: 'F-Arb' };
+
+function renderWallets(wallets) {
+  const grid = document.getElementById('walletGrid');
+  if (!wallets || Object.keys(wallets).length === 0) {
+    grid.innerHTML = '<div style="color:#8b949e;grid-column:1/-1;text-align:center;padding:40px;">No wallet data</div>';
+    return;
+  }
+  grid.innerHTML = Object.entries(wallets).map(([key, w]) => {
+    if (!w) return '';
+    const color = ENGINE_COLORS[key] || ENGINE_COLORS.default;
+    const pnl = (w.totalProfit || 0) - (w.totalLoss || 0);
+    const pnlClass = pnl >= 0 ? 'green' : 'red';
+    const pnlSign = pnl >= 0 ? '+' : '';
+    const wrPct = ((w.winRate || 0) * 100).toFixed(1);
+    const openCount = (w.openPositions || []).length;
+    return `<div class="wallet-panel" style="border-color:${color};">
+      <div class="wallet-header">
+        <span class="wallet-title" style="color:${color};">${w.name || key}</span>
+        <span class="wallet-strategy" style="background:${color}22;color:${color};">${STRAT_LABELS[w.strategy] || w.strategy || '—'}</span>
+      </div>
+      <div class="wallet-stats">
+        <div class="stat"><div class="stat-label">Capital</div><div class="stat-value">$${(w.totalCapital || 0).toFixed(2)}</div></div>
+        <div class="stat"><div class="stat-label">Available</div><div class="stat-value small">$${(w.availableBalance || 0).toFixed(2)}</div></div>
+        <div class="stat"><div class="stat-label">P&L</div><div class="stat-value small ${pnlClass}">${pnlSign}$${pnl.toFixed(2)}</div></div>
+        <div class="stat"><div class="stat-label">Trades</div><div class="stat-value small">${w.completedTrades || 0}</div></div>
+        <div class="stat"><div class="stat-label">Win Rate</div><div class="stat-value small">${wrPct}%</div></div>
+        <div class="stat"><div class="stat-label">Open</div><div class="stat-value small">${openCount}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTrades(trades) {
+  const body = document.getElementById('tradeTable');
+  if (!trades || trades.length === 0) {
+    body.innerHTML = '<tr><td colspan="10" style="color:#8b949e;text-align:center;">No trades yet</td></tr>';
+    return;
+  }
+  body.innerHTML = trades.slice(0, 50).map(t => {
+    const pnl = t.profit || 0;
+    const eng = t.engine || 'safe';
+    const color = ENGINE_COLORS[eng] || ENGINE_COLORS.default;
+    const stratLabel = STRAT_LABELS[t.strategy] || '—';
+    const side = (t.leg1 && t.leg1.side) || '—';
+    const shares = (t.leg1 && t.leg1.shares) || '—';
+    const entry = t.leg1 ? '$' + t.leg1.price.toFixed(3) : '$' + (t.totalCost || 0).toFixed(2);
+    const exit = t.expectedPayout ? '$' + t.expectedPayout.toFixed(2) : '—';
+    let statusClass = 'badge-gray';
+    if (t.status === 'complete' || t.status === 'filled') statusClass = 'badge-green';
+    else if (t.status === 'leg1_filled' || t.status === 'hedging') statusClass = 'badge-yellow';
+    else if (t.status === 'stop_loss' || t.status === 'error' || t.status === 'cancelled') statusClass = 'badge-red';
+    return '<tr>' +
+      '<td><span class="wallet-tag" style="background:' + color + ';">' + eng.toUpperCase() + '</span></td>' +
+      '<td><span class="badge badge-blue">' + stratLabel + '</span></td>' +
+      '<td style="color:#8b949e;">' + (t.id || '').slice(0, 8) + '</td>' +
+      '<td>' + (t.asset || '').toUpperCase() + '</td>' +
+      '<td>' + side + '</td>' +
+      '<td>' + shares + '</td>' +
+      '<td>' + entry + '</td>' +
+      '<td>' + exit + '</td>' +
+      '<td class="' + (pnl >= 0 ? 'green' : 'red') + '">' + (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2) + '</td>' +
+      '<td><span class="badge ' + statusClass + '">' + t.status + '</span></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function renderMarkets(markets) {
+  const body = document.getElementById('marketTable');
+  if (!markets || markets.length === 0) {
+    body.innerHTML = '<tr><td colspan="6" style="color:#8b949e;text-align:center;">No markets loaded</td></tr>';
+    return;
+  }
+  body.innerHTML = markets.slice(0, 100).map(m => {
+    const combined = (m.yes.ask + m.no.ask).toFixed(3);
+    return '<tr>' +
+      '<td style="font-family:monospace;font-size:12px;">' + (m.market || '').slice(0, 10) + '…</td>' +
+      '<td>$' + m.yes.bid.toFixed(3) + '</td>' +
+      '<td>$' + m.yes.ask.toFixed(3) + '</td>' +
+      '<td>$' + m.no.bid.toFixed(3) + '</td>' +
+      '<td>$' + m.no.ask.toFixed(3) + '</td>' +
+      '<td>$' + combined + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
 function updateDashboard() {
   fetch('/api/state')
     .then(r => r.json())
     .then(d => {
-      const state = d.state;
-      const metrics = d.metrics;
-      const comp = d.compoundStats;
-      const wallets = d.wallets;
-      const walletKeys = ['A','B','C'];
-      const walletColors = {A:'#f85149',B:'#d29922',C:'#3fb950'};
+      const state = d.state || {};
+      const metrics = d.metrics || {};
 
       document.getElementById('statusDot').className = 'status-dot ' + (state.isRunning ? 'green' : 'red');
       document.getElementById('statusText').textContent = state.isRunning ? 'Running' : 'Stopped';
       document.getElementById('marketCountText').textContent = 'Markets: ' + (state.marketCount || 0);
 
-      const uptime = Math.floor((Date.now() - state.startTime) / 1000);
+      const mode = state.mode || '—';
+      const modeEl = document.getElementById('modeText');
+      if (mode === 'paper_trade') { modeEl.textContent = '📄 PAPER'; modeEl.style.color = '#d29922'; }
+      else if (mode === 'simulation') { modeEl.textContent = '🧪 SIM'; modeEl.style.color = '#58a6ff'; }
+      else { modeEl.textContent = '🔴 LIVE'; modeEl.style.color = '#f85149'; }
+
+      const uptime = Math.floor((Date.now() - (state.startTime || Date.now())) / 1000);
       const h = Math.floor(uptime / 3600);
       const m = Math.floor((uptime % 3600) / 60);
       document.getElementById('uptimeText').textContent = 'Uptime: ' + h + 'h ' + m + 'm';
 
-      for (const key of walletKeys) {
-        const w = wallets[key];
-        if (!w) continue;
-        document.getElementById('w' + key + '_capital').textContent = '$' + w.totalCapital.toFixed(2);
-        document.getElementById('w' + key + '_balance').textContent = '$' + w.availableBalance.toFixed(2);
-        const pnl = w.totalProfit - w.totalLoss;
-        const el = document.getElementById('w' + key + '_pnl');
-        el.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
-        el.className = 'stat-value small ' + (pnl >= 0 ? 'green' : 'red');
-        document.getElementById('w' + key + '_trades').textContent = w.completedTrades || 0;
-        document.getElementById('w' + key + '_wins').textContent = ((w.winRate || 0) * 100).toFixed(1) + '%';
-        document.getElementById('w' + key + '_open').textContent = (w.openPositions || []).length;
-      }
+      renderWallets(d.wallets);
 
-      document.getElementById('totalCapital').textContent = '$' + state.totalCapital.toFixed(2);
-      document.getElementById('netProfit').textContent = (state.totalProfit - state.totalLoss >= 0 ? '+' : '') + (state.totalProfit - state.totalLoss).toFixed(2);
-      document.getElementById('netProfit').className = 'value ' + (state.totalProfit - state.totalLoss >= 0 ? 'green' : 'red');
-      document.getElementById('totalTrades').textContent = state.completedTrades;
-      document.getElementById('winRate').textContent = (state.winRate * 100).toFixed(1) + '%';
+      const totalPnl = (state.totalProfit || 0) - (state.totalLoss || 0);
+      document.getElementById('totalCapital').textContent = '$' + (state.totalCapital || 0).toFixed(2);
+      document.getElementById('netProfit').textContent = (totalPnl >= 0 ? '+' : '') + totalPnl.toFixed(2);
+      document.getElementById('netProfit').className = 'value ' + (totalPnl >= 0 ? 'green' : 'red');
+      document.getElementById('totalTrades').textContent = state.completedTrades || 0;
+      document.getElementById('winRate').textContent = ((state.winRate || 0) * 100).toFixed(1) + '%';
 
-      if (comp) {
-        document.getElementById('profitPool').textContent = '$' + (comp.profitPool || 0).toFixed(2);
-        document.getElementById('totalReinvested').textContent = '$' + (comp.totalReinvested || 0).toFixed(2);
-      }
+      const comp = d.compoundStats || {};
+      document.getElementById('profitPool').textContent = '$' + (comp.profitPool || 0).toFixed(2);
+      document.getElementById('totalReinvested').textContent = '$' + (comp.totalReinvested || 0).toFixed(2);
 
-      const tradeBody = document.getElementById('tradeTable');
-      if (d.recentTrades && d.recentTrades.length > 0) {
-        tradeBody.innerHTML = d.recentTrades.slice(0, 25).map(t => {
-          const pnl = t.profit || 0;
-          const wid = t.walletId || 'C';
-          const strategy = t.strategy || 'safe_arb';
-          const colors = {A:'#f85149',B:'#d29922',C:'#3fb950'};
-          const stratLabels = {directional:'D',scalp:'S',safe_arb:'A'};
-          return '<tr>' +
-            '<td><span class="wallet-tag" style="background:' + colors[wid] + ';">' + wid + '</span></td>' +
-            '<td><span class="badge badge-blue">' + (stratLabels[strategy] || '—') + '</span></td>' +
-            '<td style="color:#8b949e;">' + (t.id || '').slice(0,8) + '</td>' +
-            '<td>' + (t.asset || '').toUpperCase() + '</td>' +
-            '<td>' + (t.leg1 ? t.leg1.side : '—') + '</td>' +
-            '<td>' + (t.leg1 ? t.leg1.shares : '—') + '</td>' +
-            '<td>$' + t.totalCost.toFixed(2) + '</td>' +
-            '<td>$' + (t.expectedPayout || 0).toFixed(2) + '</td>' +
-            '<td class="' + (pnl >= 0 ? 'green' : 'red') + '">' + (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2) + '</td>' +
-            '<td><span class="badge badge-' + (t.status === 'complete' ? 'green' : t.status === 'leg1_filled' ? 'yellow' : t.status === 'error' ? 'red' : 'blue') + '">' + t.status + '</span></td>' +
-            '</tr>';
-        }).join('');
-      } else {
-        tradeBody.innerHTML = '<tr><td colspan="10" style="color:#8b949e;text-align:center;">No trades yet</td></tr>';
-      }
-
-      const marketBody = document.getElementById('marketTable');
-      if (d.currentMarkets && d.currentMarkets.length > 0) {
-        marketBody.innerHTML = d.currentMarkets.map(m => {
-          const combined = (m.yes.ask + m.no.ask);
-          return '<tr>' +
-            '<td>' + (m.market || '').slice(0, 10) + '...</td>' +
-            '<td>$' + m.yes.bid.toFixed(3) + '</td>' +
-            '<td>$' + m.yes.ask.toFixed(3) + '</td>' +
-            '<td>$' + m.no.bid.toFixed(3) + '</td>' +
-            '<td>$' + m.no.ask.toFixed(3) + '</td>' +
-            '<td>$' + combined.toFixed(3) + '</td>' +
-            '</tr>';
-        }).join('');
-      } else {
-        marketBody.innerHTML = '<tr><td colspan="6" style="color:#8b949e;text-align:center;">No markets loaded</td></tr>';
-      }
+      renderTrades(d.recentTrades);
+      renderMarkets(d.currentMarkets);
     })
-    .catch(err => console.error('Dashboard fetch error:', err));
+    .catch(err => {
+      document.getElementById('statusDot').className = 'status-dot red';
+      document.getElementById('statusText').textContent = 'Disconnected';
+    });
 }
 
-setInterval(updateDashboard, 2000);
+setInterval(updateDashboard, 3000);
 updateDashboard();
 </script>
 </body>

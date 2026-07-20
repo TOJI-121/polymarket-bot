@@ -74,7 +74,7 @@ export interface BotState {
   winRate: number;
   startTime: number;
   isRunning: boolean;
-  mode: 'simulation' | 'production';
+  mode: 'simulation' | 'production' | 'paper_trade';
   marketCount: number;
   withdrawalMode: 'compound' | 'partial' | 'full';
   dailyWithdrawCap: number;
