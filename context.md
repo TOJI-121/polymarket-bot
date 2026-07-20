@@ -71,9 +71,13 @@ Commands: /withdraw | /withdraw 5000 | /withdraw_week | /withdraw_month | /statu
 - All trades, notifications, journaling working correctly
 
 ## Session Resume
-- **Last action:** Built v3.0 dual-engine bot, compiled clean, ran sim successfully
-- **Next step:** User needs to provide Telegram Bot Token, $10 USDC, and wallet seed for live deployment
-- **Blockers:** None — ready for user to provide credentials
+- **Last action:** v3.5 with 4 strategies + ₹300 math, pushed to GitHub, deployed on Render
+- **Next step:** Wait for Render deployment to finish, verify logs, then tomorrow flip to real mode
+- **Fixes applied:**
+  - `.env`: `SIMULATION=false, PAPER_TRADE=true` — reads real Polymarket data, never spends money
+  - Added `/healthz` endpoint for Render health checks
+- **Blockers:** User needs to provide Polygon private key + deposit ₹300 USDC (tomorrow)
+- **Render URL:** https://polymarket-bot-si3e.onrender.com
 
 ## To Start Bot
 ```bash

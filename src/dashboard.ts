@@ -48,6 +48,10 @@ export class DashboardServer {
 
     this.app.use(express.static(path.join(__dirname, '..', 'dashboard')));
 
+    this.app.get('/healthz', (_req, res) => {
+      res.status(200).send('OK');
+    });
+
     this.app.get('/api/state', (_req, res) => {
       res.json({
         state: this.state,
