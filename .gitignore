@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+bot.log
+trades.csv
+paper_output*.txt
+sim_output*.txt
+sim_test_*
+*.log
