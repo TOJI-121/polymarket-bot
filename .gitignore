@@ -7,3 +7,12 @@ paper_output*.txt
 sim_output*.txt
 sim_test_*
 *.log
+
+MONEYPRINTER/
+polymarket-ai-bot/
+bot.zip
+paper_output*.txt
+sim_output.txt
+trades.csv
+dist/
+

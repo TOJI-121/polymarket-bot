@@ -127,7 +127,7 @@ class DualEngineBot {
     await this.discoverMarkets();
 
     this.scanIntervalId = setInterval(() => this.discoverMarkets(), 5 * 60 * 1000);
-    this.tradeIntervalId = setInterval(() => this.tradeCycle(), 10000);
+    this.tradeIntervalId = setInterval(() => this.tradeCycle(), 5000);
     this.notifier.startChatIdPoller();
 
     const compoundInterval = setInterval(() => this.compoundCycle(), this.compoundCheckInterval);
@@ -177,6 +177,8 @@ class DualEngineBot {
       const freshBudget = totalAvail * 0.15;
       const sportsBudget = totalAvail * 0.10;
 
+      await this.processSubOneSweep(snapshots);
+
       for (const snapshot of snapshots) {
         await this.safeEngine.processSnapshot(snapshot);
         await this.mixedEngine.processSnapshot(snapshot);
@@ -199,6 +201,21 @@ class DualEngineBot {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`Trade cycle error: ${msg}`);
+    }
+  }
+
+  private subOneCount = 0;
+
+  private async processSubOneSweep(snapshots: OrderbookSnapshot[]): Promise<void> {
+    const subOne = snapshots.filter(s => s.yes.ask + s.no.ask < 0.99);
+    if (subOne.length === 0) return;
+
+    this.subOneCount++;
+    this.logger.info(`[SUB-1] Found ${subOne.length} sub-$1 markets (sweep #${this.subOneCount})`);
+    for (const s of subOne.slice(0, 5)) {
+      const combined = s.yes.ask + s.no.ask;
+      const profit = ((1 - combined) * 100).toFixed(2);
+      this.logger.info(`[SUB-1] ${s.market.slice(0,10)} YES=$${s.yes.ask.toFixed(3)} NO=$${s.no.ask.toFixed(3)} = $${combined.toFixed(3)} (${profit}% profit)`);
     }
   }
 

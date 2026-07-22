@@ -46,7 +46,7 @@ export function loadConfig(): ValidatedConfig {
     dumpHedgeSharesMax: envNum('DUMP_HEDGE_SHARES_MAX', 20),
     dumpHedgeCapitalFraction: envNum('DUMP_HEDGE_CAPITAL_FRACTION', 0.8),
     dumpHedgeSumTarget: envNum('DUMP_HEDGE_SUM_TARGET', 0.94),
-    dumpHedgeMoveThreshold: envNum('DUMP_HEDGE_MOVE_THRESHOLD', 0.15),
+    dumpHedgeMoveThreshold: envNum('DUMP_HEDGE_MOVE_THRESHOLD', 0.05),
     dumpHedgeStopLossMaxWaitMinutes: envNum('DUMP_HEDGE_STOP_LOSS_MAX_WAIT_MINUTES', 2),
     dumpHedgeStopLossPercentage: envNum('DUMP_HEDGE_STOP_LOSS_PERCENTAGE', 0.2),
     scalpProfitTarget: envNum('SCALP_PROFIT_TARGET', 2.0),
