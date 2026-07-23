@@ -5,7 +5,7 @@ import { AutoCompound } from './compound';
 import { TradeJournal } from './journal';
 import { Notifier } from './notifier';
 import { SlippageModel } from './slippage';
-import { getLogger, formatUSD, now } from './utils';
+import { getLogger, formatUSD, now, roundToCents } from './utils';
 
 export class SafeEngine {
   readonly id: EngineId = 'safe';
@@ -143,6 +143,12 @@ export class SafeEngine {
       else break;
     }
     return count;
+  }
+
+  deductBalance(amount: number): void {
+    if (amount <= 0) return;
+    this.state.availableBalance = roundToCents(Math.max(0, this.state.availableBalance - amount));
+    this.state.capital = this.state.availableBalance;
   }
 
   removeFinishedPositions(): void {

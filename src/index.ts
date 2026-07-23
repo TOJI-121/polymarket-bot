@@ -310,19 +310,25 @@ class DualEngineBot {
   private compoundCycle(): void {
     if (!this.isRunning) return;
 
-    const engineCapital = this.safeEngine.getState().availableBalance + this.mixedEngine.getState().availableBalance;
+    const safeState = this.safeEngine.getState();
+    const mixedState = this.mixedEngine.getState();
+    const engineCapital = safeState.availableBalance + mixedState.availableBalance;
     const targetCapital = this.config.safeCapital + this.config.mixedCapital;
 
     if (engineCapital > targetCapital * 1.05) {
-      const excess = engineCapital - targetCapital;
-      const safeExcess = excess * (this.config.safeCapital / targetCapital);
-      const mixedExcess = excess * (this.config.mixedCapital / targetCapital);
+      const excess = roundToCents(engineCapital - targetCapital);
+      const sweepAmount = roundToCents(excess * 0.5);
 
-      this.compoundPool += excess * 0.5;
+      const safePortion = roundToCents(sweepAmount * (this.config.safeCapital / targetCapital));
+      const mixedPortion = roundToCents(sweepAmount - safePortion);
+
+      this.safeEngine.deductBalance(safePortion);
+      this.mixedEngine.deductBalance(mixedPortion);
+
+      this.compoundPool += sweepAmount;
 
       this.logger.info(
-        `[COMPOUND] Pool: ${formatUSD(this.compoundPool)}, ` +
-        `Total reinvested: ${formatUSD(this.totalReinvested)}`
+        `[COMPOUND] Swept ${formatUSD(sweepAmount)} → pool ${formatUSD(this.compoundPool)}`
       );
     }
   }

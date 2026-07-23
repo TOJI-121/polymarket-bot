@@ -7,7 +7,7 @@ import { TradeJournal } from './journal';
 import { Notifier } from './notifier';
 import { KellyCalculator } from './kelly';
 import { SlippageModel } from './slippage';
-import { getLogger, formatUSD, now } from './utils';
+import { getLogger, formatUSD, now, roundToCents } from './utils';
 
 export class MixedEngine {
   readonly id: EngineId = 'mixed';
@@ -248,6 +248,12 @@ export class MixedEngine {
       else break;
     }
     return count;
+  }
+
+  deductBalance(amount: number): void {
+    if (amount <= 0) return;
+    this.state.availableBalance = roundToCents(Math.max(0, this.state.availableBalance - amount));
+    this.state.capital = this.state.availableBalance;
   }
 
   removeFinishedPositions(): void {
