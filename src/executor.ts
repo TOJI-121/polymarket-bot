@@ -55,8 +55,9 @@ export class ExecutionEngine {
       status: 'pending',
     };
 
-    if (this.config.simulation) {
-      this.logger.info(`[SIM] ${label} ${side} ${shares}sh @ $${price.toFixed(3)} = $${totalCost.toFixed(2)} on ${snapshot.market}`);
+    if (this.config.simulation || this.config.paperTrade) {
+      const tag = this.config.paperTrade ? 'PAPER' : 'SIM';
+      this.logger.info(`[${tag}] ${label} ${side} ${shares}sh @ $${price.toFixed(3)} = $${totalCost.toFixed(2)} on ${snapshot.market}`);
       trade.status = 'filled';
       trade.txHash = `sim_${trade.id}`;
       return trade;
