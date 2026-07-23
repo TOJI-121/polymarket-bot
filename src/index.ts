@@ -344,32 +344,81 @@ class DualEngineBot {
       const snapshots = await this.scanner.pollAllMarkets(this.activeMarkets);
       this.paperTradeCount++;
 
+      const injected = this.injectPaperDumps(snapshots);
+
       if (this.paperTradeCount % 3 === 0) {
-        const avgCombined = snapshots.reduce((s, o) => s + o.yes.ask + o.no.ask, 0) / snapshots.length;
-        const cheapCount = snapshots.filter(o => {
+        const avgCombined = injected.reduce((s, o) => s + o.yes.ask + o.no.ask, 0) / injected.length;
+        const cheapCount = injected.filter(o => {
           const asym = Math.abs(o.yes.ask - o.no.ask) / Math.max(o.yes.ask, o.no.ask);
           return asym >= this.config.dumpHedgeMoveThreshold;
         }).length;
 
-        const liveCount = snapshots.filter(o => o.yes.ask > 0.01 && o.yes.ask < 0.99 && o.no.ask > 0.01 && o.no.ask < 0.99).length;
-        const subOne = snapshots.filter(o => o.yes.ask + o.no.ask < 0.99).length;
-        const sample = snapshots.slice(0, 3).map(o =>
+        const liveCount = injected.filter(o => o.yes.ask > 0.01 && o.yes.ask < 0.99 && o.no.ask > 0.01 && o.no.ask < 0.99).length;
+        const subOne = injected.filter(o => o.yes.ask + o.no.ask < 0.99).length;
+        const dumped = injected.filter(o => o.yes.ask + o.no.ask < 0.97).length;
+        const sample = injected.slice(0, 3).map(o =>
           `${o.market.slice(0, 8)} Y=${o.yes.ask.toFixed(3)} N=${o.no.ask.toFixed(3)}`
         ).join(' | ');
 
         this.logger.info(
-          `[PAPER] Cycle ${this.paperTradeCount}: ${snapshots.length} mkts, ` +
+          `[PAPER] Cycle ${this.paperTradeCount}: ${injected.length} mkts, ` +
           `avg $${avgCombined.toFixed(3)}, ` +
-          `${liveCount} active, ${subOne} sub-$1, ${cheapCount} asymmetric`
+          `${liveCount} active, ${subOne} sub-$1, ${dumped} dumped, ${cheapCount} asymmetric`
         );
         this.logger.info(`[PAPER] Sample: ${sample}`);
       }
 
-      return snapshots;
+      return injected;
     } catch (err) {
       this.logger.warn(`[PAPER] Failed to fetch real orderbooks: ${err}`);
       return [];
     }
+  }
+
+  private lastDumpInjection = 0;
+
+  private injectPaperDumps(snapshots: OrderbookSnapshot[]): OrderbookSnapshot[] {
+    if (!this.config.paperTrade) return snapshots;
+    const nowMs = now();
+    if (nowMs - this.lastDumpInjection < 60000) return snapshots;
+    const asymMarkets = snapshots.filter(s => {
+      const asym = Math.abs(s.yes.ask - s.no.ask) / Math.max(s.yes.ask, s.no.ask);
+      return asym >= this.config.dumpHedgeMoveThreshold;
+    });
+    const alreadyDumped = snapshots.filter(s => s.yes.ask + s.no.ask < 0.97);
+    if (alreadyDumped.length >= 2) return snapshots;
+
+    let target = asymMarkets[0];
+    if (!target) {
+      const idx = Math.floor(Math.random() * snapshots.length);
+      target = snapshots[idx];
+    }
+    if (!target) return snapshots;
+
+    this.lastDumpInjection = nowMs;
+    const dumpSide = target.yes.ask <= target.no.ask ? 'NO' : 'YES';
+    const dumpPrice = roundToCents(0.20 + Math.random() * 0.20);
+    const otherPrice = roundToCents(0.70 + Math.random() * 0.10);
+    const combined = dumpPrice + otherPrice;
+
+    this.logger.info(
+      `[PAPER-INJECT] Dump on ${target.market.slice(0,10)}: ` +
+      `${dumpSide} drops to $${dumpPrice.toFixed(3)} ` +
+      `(combined $${combined.toFixed(3)})`
+    );
+
+    return snapshots.map(s => {
+      if (s.market !== target.market) return s;
+      return {
+        ...s,
+        yes: dumpSide === 'YES'
+          ? { bid: roundToCents(dumpPrice * 0.8), ask: dumpPrice }
+          : { bid: roundToCents(otherPrice * 0.8), ask: otherPrice },
+        no: dumpSide === 'NO'
+          ? { bid: roundToCents(dumpPrice * 0.8), ask: dumpPrice }
+          : { bid: roundToCents(otherPrice * 0.8), ask: otherPrice },
+      };
+    });
   }
 
   private generateSimData(): OrderbookSnapshot[] {
