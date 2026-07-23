@@ -6,6 +6,7 @@ import { MarketScanner } from './scanner';
 import { ExecutionEngine } from './executor';
 import { AutoCompound } from './compound';
 import { Notifier } from './notifier';
+import { TelegramCommander, BotAPI } from './telegram-commands';
 import { DashboardServer } from './dashboard';
 import { SafeEngine } from './safe-engine';
 import { MixedEngine } from './mixed-engine';
@@ -20,7 +21,7 @@ import {
   WalletState, Position, StrategyDecision, PERIOD_MS,
 } from './types';
 
-class DualEngineBot {
+class DualEngineBot implements BotAPI {
   private config: ValidatedConfig;
   private logger: ReturnType<typeof getLogger>;
   private scanner: MarketScanner;
@@ -28,6 +29,7 @@ class DualEngineBot {
   private compound: AutoCompound;
   private journal: TradeJournal;
   private notifier: Notifier;
+  private telegram: TelegramCommander;
   private dashboard: DashboardServer;
   private safeEngine: SafeEngine;
   private mixedEngine: MixedEngine;
@@ -52,6 +54,8 @@ class DualEngineBot {
   private freshCount = 0;
   private sportsCount = 0;
   private isCycling = false;
+  private lastTradeTimestamp: number = now();
+  private lastCompletedCount = 0;
 
   private withdrawalQueueCheckInterval = 30_000;
 
@@ -77,6 +81,7 @@ class DualEngineBot {
     this.notifier = new Notifier(this.config, (chatId) => {
       this.logger.info(`[BOT] Telegram Chat ID received: ${chatId} — updating .env`);
     });
+    this.telegram = new TelegramCommander(this.config, this, parseInt(this.config.telegramChatId || '0'));
     this.dashboard = new DashboardServer(this.config, 3456);
     this.kelly = new KellyCalculator();
     this.slippage = new SlippageModel();
@@ -204,6 +209,7 @@ class DualEngineBot {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`Trade cycle error: ${msg}`);
+      this.telegram.sendErrorAlert(`Trade cycle: ${msg}`);
     } finally {
       this.isCycling = false;
     }
@@ -249,6 +255,9 @@ class DualEngineBot {
         const pos = this.freshMarket.createPosition(snapshot, trade);
         this.freshCount++;
         await this.notifier.onTradeOpened(pos);
+        await this.telegram.sendTradeOpened(
+          `🔵 <b>Fresh Market</b>\nSide: ${pos.leg1?.side} | Price: $${(pos.leg1?.price || 0).toFixed(3)}\nCost: ${formatUSD(pos.leg1?.totalCost || 0)}`
+        );
         break;
       }
       case 'SELL': {
@@ -257,6 +266,9 @@ class DualEngineBot {
         this.compound.addProfit(Math.max(0, completed.profit));
         this.journal.logTrade(completed);
         await this.notifier.onTradeCompleted(completed);
+        await this.telegram.sendTradeCompleted(
+          `🔵 <b>Fresh Market</b>\nP&amp;L: ${completed.profit >= 0 ? '+' : ''}${formatUSD(completed.profit)}\nID: ${completed.id.slice(0, 8)}...`
+        );
         break;
       }
       case 'HEDGE':
@@ -268,6 +280,9 @@ class DualEngineBot {
         this.compound.addProfit(Math.max(0, pos.profit));
         this.journal.logTrade(pos);
         await this.notifier.onTradeCompleted(pos);
+        await this.telegram.sendTradeCompleted(
+          `🔵 <b>Fresh Market (Hedge)</b>\nP&amp;L: ${pos.profit >= 0 ? '+' : ''}${formatUSD(pos.profit)}\nID: ${pos.id.slice(0, 8)}...`
+        );
         break;
       }
     }
@@ -284,6 +299,9 @@ class DualEngineBot {
         const pos = this.sportsScalp.createPosition(snapshot, trade, targetPrice);
         this.sportsCount++;
         await this.notifier.onTradeOpened(pos);
+        await this.telegram.sendTradeOpened(
+          `🔴 <b>Sports Scalp</b>\nSide: ${pos.leg1?.side} | Price: $${(pos.leg1?.price || 0).toFixed(3)}\nCost: ${formatUSD(pos.leg1?.totalCost || 0)}`
+        );
         break;
       }
       case 'SELL': {
@@ -292,6 +310,9 @@ class DualEngineBot {
         this.compound.addProfit(Math.max(0, completed.profit));
         this.journal.logTrade(completed);
         await this.notifier.onTradeCompleted(completed);
+        await this.telegram.sendTradeCompleted(
+          `🔴 <b>Sports Scalp</b>\nP&amp;L: ${completed.profit >= 0 ? '+' : ''}${formatUSD(completed.profit)}\nID: ${completed.id.slice(0, 8)}...`
+        );
         break;
       }
       case 'STOP_LOSS_HEDGE': {
@@ -302,6 +323,9 @@ class DualEngineBot {
         this.compound.addProfit(Math.max(0, pos.profit));
         this.journal.logTrade(pos);
         await this.notifier.onTradeCompleted(pos);
+        await this.telegram.sendTradeCompleted(
+          `🔴 <b>Sports Scalp (Hedge)</b>\nP&amp;L: ${pos.profit >= 0 ? '+' : ''}${formatUSD(pos.profit)}\nID: ${pos.id.slice(0, 8)}...`
+        );
         break;
       }
     }
@@ -673,6 +697,111 @@ class DualEngineBot {
     return status.join('\n');
   }
 
+  async getProfit(): Promise<string> {
+    const safe = this.safeEngine.getState();
+    const mixed = this.mixedEngine.getState();
+    const totalProfit = safe.totalProfit + mixed.totalProfit;
+    const totalLoss = safe.totalLoss + mixed.totalLoss;
+    const net = totalProfit - totalLoss;
+    const totalTrades = safe.completedTrades + mixed.completedTrades;
+    const totalWins = Math.round(safe.winRate * safe.completedTrades) + Math.round(mixed.winRate * mixed.completedTrades);
+    const totalCapital = safe.availableBalance + mixed.availableBalance;
+    const initial = this.config.safeCapital + this.config.mixedCapital;
+    const growth = ((totalCapital / initial) - 1) * 100;
+
+    const lines: string[] = [
+      '<b>💰 Profit &amp; Loss</b>\n',
+      `<b>Safe Engine:</b> ${formatUSD(safe.totalProfit - safe.totalLoss)} (${safe.completedTrades} trades, ${(safe.winRate * 100).toFixed(0)}% WR)`,
+      `<b>Mixed Engine:</b> ${formatUSD(mixed.totalProfit - mixed.totalLoss)} (${mixed.completedTrades} trades, ${(mixed.winRate * 100).toFixed(0)}% WR)`,
+      '',
+      `<b>Net P&amp;L:</b> ${net >= 0 ? '+' : ''}${formatUSD(net)}`,
+      `<b>Capital:</b> ${formatUSD(totalCapital)} (${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%)`,
+      `<b>Win Rate:</b> ${totalTrades > 0 ? ((totalWins / totalTrades) * 100).toFixed(1) : '0'}%`,
+    ];
+
+    return lines.join('\n');
+  }
+
+  async getPositions(): Promise<string> {
+    const safeES = this.safeEngine.getState();
+    const mixedES = this.mixedEngine.getState();
+    const freshPos = this.freshMarket?.getOpenPositions() || [];
+    const sportsPos = this.sportsScalp?.getOpenPositions() || [];
+
+    const lines: string[] = ['<b>📋 Open Positions</b>\n'];
+
+    lines.push('<b>🟢 Safe Engine:</b>');
+    if (safeES.openPositions.length === 0) lines.push('  None');
+    else for (const p of safeES.openPositions) {
+      lines.push(`  • $${(p.leg1?.price || 0).toFixed(2)} ${p.leg1?.side || '?'} — ${p.status}`);
+      lines.push(`    Cost: $${p.totalCost.toFixed(2)}`);
+    }
+
+    lines.push('\n<b>🟡 Mixed Engine:</b>');
+    if (mixedES.openPositions.length === 0) lines.push('  None');
+    else for (const p of mixedES.openPositions) {
+      const strat = p.strategy === 'scalp' ? 'Scalp' : 'Dump Hedge';
+      lines.push(`  • [${strat}] $${(p.leg1?.price || 0).toFixed(2)} ${p.leg1?.side || '?'} — ${p.status}`);
+      lines.push(`    Cost: $${p.totalCost.toFixed(2)} ${p.expectedPayout > 0 ? `| Target: $${p.expectedPayout.toFixed(2)}` : ''}`);
+    }
+
+    lines.push('\n<b>🔵 Fresh Market:</b>');
+    if (freshPos.length === 0) lines.push('  None');
+    else for (const p of freshPos) {
+      lines.push(`  • $${(p.leg1?.price || 0).toFixed(2)} ${p.leg1?.side || '?'} — ${p.status}`);
+    }
+
+    lines.push('\n<b>🔴 Sports Scalper:</b>');
+    if (sportsPos.length === 0) lines.push('  None');
+    else for (const p of sportsPos) {
+      lines.push(`  • $${(p.leg1?.price || 0).toFixed(2)} ${p.leg1?.side || '?'} — ${p.status}`);
+      lines.push(`    Target: $${p.expectedPayout.toFixed(2)}`);
+    }
+
+    return lines.join('\n');
+  }
+
+  async getConfig(): Promise<string> {
+    const nowMs = now();
+    const noTouchDays = Math.max(0, Math.ceil((this.noTouchUntil - nowMs) / (24 * 60 * 60 * 1000)));
+
+    return [
+      '<b>⚙️ Bot Config</b>\n',
+      `<b>Mode:</b> ${this.config.paperTrade ? '📄 PAPER TRADE' : this.config.simulation ? '💻 SIMULATION' : '🚀 PRODUCTION'}`,
+      `<b>Engine Mode:</b> ${this.config.engineMode}`,
+      `<b>Safe Capital:</b> ${formatUSD(this.config.safeCapital)}`,
+      `<b>Mixed Capital:</b> ${formatUSD(this.config.mixedCapital)}`,
+      `<b>Tracked Markets:</b> ${this.activeMarkets.length}`,
+      '',
+      `<b>No-Touch:</b> ${noTouchDays}d remaining`,
+      '',
+      `<b>Dump Hedge Threshold:</b> ${(this.config.dumpHedgeMoveThreshold * 100).toFixed(0)}%`,
+      `<b>Min Dump Price:</b> ${formatUSD(this.config.dumpHedgeMinDumpPrice)}`,
+      `<b>Dump Hedge Shares:</b> ${this.config.dumpHedgeShares}–${this.config.dumpHedgeSharesMax}`,
+      `<b>Sum Target:</b> ${(this.config.dumpHedgeSumTarget * 100).toFixed(0)}%`,
+      '',
+      `<b>Scalp Target:</b> ${this.config.scalpProfitTarget}x`,
+      `<b>Kelly Fraction:</b> ${(this.config.kellyFraction * 100).toFixed(0)}%`,
+      `<b>Max Losses:</b> ${this.config.maxConsecutiveLosses}`,
+    ].join('\n');
+  }
+
+  getOpenPositionCount(): number {
+    const safe = this.safeEngine.getState().openPositions.length;
+    const mixed = this.mixedEngine.getState().openPositions.length;
+    const fresh = this.freshMarket?.getOpenPositions().length || 0;
+    const sports = this.sportsScalp?.getOpenPositions().length || 0;
+    return safe + mixed + fresh + sports;
+  }
+
+  getLastTradeTime(): number {
+    return this.lastTradeTimestamp;
+  }
+
+  getStartTime(): number {
+    return this.startTimestamp;
+  }
+
   private syncState(): void {
     this.safeEngine.syncState();
     this.mixedEngine.syncState();
@@ -761,6 +890,11 @@ class DualEngineBot {
       profitPool: this.compoundPool,
       totalReinvested: this.totalReinvested,
     });
+
+    if (this.state.completedTrades > this.lastCompletedCount) {
+      this.lastCompletedCount = this.state.completedTrades;
+      this.lastTradeTimestamp = now();
+    }
 
     this.notifier.onStateUpdate(this.state);
   }
