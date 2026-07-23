@@ -32,7 +32,7 @@ export class DumpHedgeStrategy {
 
     if (existingPos) return [];
 
-    if (combined >= 1.0) return [];
+    if (combined > 1.02) return [];
 
     const threshold = this.config.dumpHedgeMoveThreshold;
     const isYesDumped = asymmetry >= threshold && yesAsk <= noAsk;

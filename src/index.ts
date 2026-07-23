@@ -51,6 +51,7 @@ class DualEngineBot {
   private noTouchUntil: number;
   private freshCount = 0;
   private sportsCount = 0;
+  private isCycling = false;
 
   private withdrawalQueueCheckInterval = 30_000;
 
@@ -166,7 +167,9 @@ class DualEngineBot {
 
   private async tradeCycle(): Promise<void> {
     if (!this.isRunning) return;
+    if (this.isCycling) return;
 
+    this.isCycling = true;
     try {
       const snapshots = await this.getSnapshots();
       if (snapshots.length === 0) return;
@@ -201,6 +204,8 @@ class DualEngineBot {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`Trade cycle error: ${msg}`);
+    } finally {
+      this.isCycling = false;
     }
   }
 
@@ -398,7 +403,7 @@ class DualEngineBot {
     this.lastDumpInjection = nowMs;
     const dumpSide = target.yes.ask <= target.no.ask ? 'NO' : 'YES';
     const dumpPrice = roundToCents(0.20 + Math.random() * 0.20);
-    const otherPrice = roundToCents(0.70 + Math.random() * 0.10);
+    const otherPrice = roundToCents(0.60 + Math.random() * 0.10);
     const combined = dumpPrice + otherPrice;
 
     this.logger.info(

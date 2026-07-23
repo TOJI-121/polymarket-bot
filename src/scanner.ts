@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { Market, OrderbookSnapshot, Config } from './types';
-import { getLogger, safeJsonParse, sleep } from './utils';
+import { getLogger, safeJsonParse, sleep, roundToCents } from './utils';
 
 interface GammaMarket {
   conditionId?: string;
@@ -202,10 +202,11 @@ export class MarketScanner {
       const endDate = m.endDateIso || m.endDate;
       const endTimestamp = endDate ? new Date(endDate).getTime() : 0;
 
+      const spreadFactor = 0.99;
       return {
         market: conditionId,
-        yes: { bid: Math.min(p0, 0.99), ask: Math.max(p0, 0.01) },
-        no: { bid: Math.min(p1, 0.99), ask: Math.max(p1, 0.01) },
+        yes: { bid: roundToCents(p0 * spreadFactor), ask: roundToCents(Math.min(p0 / spreadFactor, 0.99)) },
+        no: { bid: roundToCents(p1 * spreadFactor), ask: roundToCents(Math.min(p1 / spreadFactor, 0.99)) },
         timestamp: Date.now(),
         endTimestamp,
       };
@@ -217,14 +218,18 @@ export class MarketScanner {
   async pollAllMarkets(markets: Market[]): Promise<OrderbookSnapshot[]> {
     if (markets.length === 0) return [];
 
-    const results = await Promise.allSettled(
-      markets.map(m => this.fetchOrderbook(m.conditionId, m.tokenId, m.noTokenId))
-    );
-
+    const BATCH_SIZE = 10;
     const snapshots: OrderbookSnapshot[] = [];
-    for (const r of results) {
-      if (r.status === 'fulfilled' && r.value) {
-        snapshots.push(r.value);
+
+    for (let i = 0; i < markets.length; i += BATCH_SIZE) {
+      const batch = markets.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(m => this.fetchOrderbook(m.conditionId, m.tokenId, m.noTokenId))
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value) {
+          snapshots.push(r.value);
+        }
       }
     }
 
