@@ -668,6 +668,8 @@ class DualEngineBot {
   }
 
   private syncState(): void {
+    this.safeEngine.syncState();
+    this.mixedEngine.syncState();
     const safeES = this.safeEngine.getState();
     const mixedES = this.mixedEngine.getState();
 

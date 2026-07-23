@@ -105,6 +105,7 @@ export interface Config {
   dumpHedgeCapitalFraction: number;
   dumpHedgeSumTarget: number;
   dumpHedgeMoveThreshold: number;
+  dumpHedgeMinDumpPrice: number;
   dumpHedgeStopLossMaxWaitMinutes: number;
   dumpHedgeStopLossPercentage: number;
   scalpProfitTarget: number;

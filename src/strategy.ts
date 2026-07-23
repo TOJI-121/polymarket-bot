@@ -35,8 +35,8 @@ export class DumpHedgeStrategy {
     if (combined > 1.02) return [];
 
     const threshold = this.config.dumpHedgeMoveThreshold;
-    const isYesDumped = asymmetry >= threshold && yesAsk <= noAsk;
-    const isNoDumped = asymmetry >= threshold && noAsk <= yesAsk;
+    const isYesDumped = asymmetry >= threshold && yesAsk <= noAsk && yesAsk < this.config.dumpHedgeMinDumpPrice;
+    const isNoDumped = asymmetry >= threshold && noAsk <= yesAsk && noAsk < this.config.dumpHedgeMinDumpPrice;
 
     if (!isYesDumped && !isNoDumped) return [];
 
